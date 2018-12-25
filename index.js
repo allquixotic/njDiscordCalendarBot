@@ -52,9 +52,9 @@ async function login() {
     console.log("INFO: Need to log in.");
     await page.goto(config.loginUrl, pageWait);
     let e = await page.waitForXPath(xpUsername, xpathOptions);
-    await e.type('***REMOVED***');
+    await e.type(config.username);
     e = await page.waitForXPath(xpPassword, xpathOptions);
-    await e.type('***REMOVED***');
+    await e.type(config.password);
     e = await page.waitForXPath(xpLoginButton, xpathOptions);
     await e.click();
     console.log("INFO: Clicked login; waiting now.");
