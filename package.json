@@ -1,0 +1,23 @@
+{
+  "name": "schedulebot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "await-to-js": "^2.1.1",
+    "discord.js": "^11.4.2",
+    "puppeteer": "^1.11.0"
+  },
+  "devDependencies": {
+    "local-repl": "^4.0.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "repl": "local-repl"
+  },
+  "repl": {
+    "enableAwait": true
+  },
+  "author": "Sean McNamara <smcnam@gmail.com>",
+  "license": "MIT"
+}
