@@ -97,6 +97,7 @@ async function setupDiscord() {
     if(msg.author.id != client.user.id && msg.content.match(dcPostRx)) {
       let ss = await takeScreenshot();
       if(ss == null) {
+	msg.channel.send(`${msg.author} Sorry, there was an error trying to get the calendar.`);
         throw "ERROR: Couldn't get the screenshot.";
       }
       let attachment = new Attachment(ss, 'events-today.png');

@@ -4,3 +4,4 @@ config.json
 node_modules/
 package-lock.json
 .DS_Store
+run.sh
