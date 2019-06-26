@@ -309,18 +309,18 @@ async function setupDiscord() {
       if(kron) {
         let numSecondsStale = lastUpdate ? Math.trunc(Luxon.DateTime.local().setLocale('en-us').diff(lastUpdate, 'seconds').toObject().seconds) : 99999999;
         if(updateRequested) {
-          msg.channel.send(`${msg.author} Okay, I'm updating my cache of the event calendar. This will take a minute or so. `
+          await msg.channel.send(`${msg.author} Okay, I'm updating my cache of the event calendar. This will take a minute or so. `
           + `I will print the up-to-date calendar for ${dt.setLocale('en-us').toLocaleString()} when I'm done.`);
           await timeToUpdate();
         }
         else {
           if(lastUpdate == null || numSecondsStale > config.updateFrequency) {
-            msg.channel.send(`${msg.author} My cache of the event calendar is ${numSecondsStale} seconds stale; I think that's too long. `
+            await msg.channel.send(`${msg.author} My cache of the event calendar is ${numSecondsStale} seconds stale; I think that's too long. `
             + `Hang on a minute or so while I update my cache for you.`);
             await timeToUpdate();
           }
         }
-        msg.channel.send(`${msg.author} Here is ${dt.setLocale('en-us').toLocaleString(Luxon.DateTime.DATE_SHORT)}'s calendar.`
+        await msg.channel.send(`${msg.author} Here is ${dt.setLocale('en-us').toLocaleString(Luxon.DateTime.DATE_SHORT)}'s calendar.`
         + ` I last refreshed my cache on ${lastUpdate.setLocale('en-us').toLocaleString(Luxon.DateTime.DATETIME_FULL)}; `
         + `if that's too old, run \`${config.updateRegexp}\` to get the latest possible.`);
         msg.channel.send(getCalendar(dt.setLocale('en-us').toJSDate()));
