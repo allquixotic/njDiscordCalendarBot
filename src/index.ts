@@ -163,12 +163,12 @@ async function timeToUpdate() {
   if(dateElement) {
     let mainMonth : Date = Sugar.Date.create(await page.evaluate(element => element.textContent, dateElement));
     const days : Array<MyDay> = [];
-    let [ err2, dayElements ] = await to(page.$x(xpDayTd));
+    let dayElements : Array<puppeteer.ElementHandle> = await page.$x(xpDayTd);
     for(let dayElement of dayElements) {
       let itsClass = await page.evaluate(element => element.getAttribute("class"), dayElement);
-      //Problem: itsClass is coming back as undefined
       let dayNum = parseInt(itsClass.match(classRx)[1], 10);
-      let dom = parseInt(await page.evaluate(element => element.textcontent, await dayElement.$x(xpDayNumber)));
+      let dayns : Array<puppeteer.ElementHandle> = await dayElement.$x(xpDayNumber);
+      let dom = parseInt(await page.evaluate(element => element.textContent, dayns[0]));
       days[dayNum] = {
         element: dayElement,
         dayOfMonth: dom,
@@ -214,12 +214,23 @@ async function timeToUpdate() {
     }
 
     //Get all the event box elements from the page.
-    let [ err3, eventBoxes ] = await to(page.$$(csEventBoxes));
-    let [ err4, eventBoxesImage ] = await to(page.$$(csEventBoxesImage));
+    let [ err3, eventBoxes ] : [ any, Array<puppeteer.ElementHandle> ] = await to(page.$$(csEventBoxes));
+    let [ err4, eventBoxesImage ] : [ any, Array<puppeteer.ElementHandle> ] = await to(page.$$(csEventBoxesImage));
     if((eventBoxes == null || eventBoxes.length <= 0 ) && (eventBoxesImage == null || eventBoxesImage.length <= 0)) {
       //TODO: Handle this better and don't fail out of the program completely, just whine to the user
       throw "ERROR: Wasn't able to see ANY events!";
     }
+
+    //Remove birthdays because they fuck everything up badly
+    eventBoxes = eventBoxes.filter(async (ebox) => {
+      let p : string = await page.evaluate(element => element.getAttribute("class"), ebox);
+      return !p.includes("birthday");
+    });
+
+    eventBoxesImage = eventBoxesImage.filter(async (ebox) => {
+      let p : string = await page.evaluate(element => element.getAttribute("class"), ebox);
+      return !p.includes("birthday");
+    });
 
     const processEltsFunc = async function (arr : Array<puppeteer.ElementHandle>, parseFunc : (arg1: puppeteer.ElementHandle) => Promise<MyEvent>) {
       for(let eventBox of arr || []) {
