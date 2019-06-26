@@ -106,10 +106,6 @@ async function inside(el1 : puppeteer.ElementHandle, el2: puppeteer.ElementHandl
   return rinside(rect1, rect2) || rinside(rect2, rect1);
 }
 
-async function getEventInfo(el1 : puppeteer.ElementHandle) {
-  
-}
-
 function sleep(ms : number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
