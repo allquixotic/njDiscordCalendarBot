@@ -165,7 +165,8 @@ async function timeToUpdate() {
     const days : Array<MyDay> = [];
     let [ err2, dayElements ] = await to(page.$x(xpDayTd));
     for(let dayElement of dayElements) {
-      let itsClass = await page.evaluate(element => element.class, dayElement);
+      let itsClass = await page.evaluate(element => element.getAttribute("class"), dayElement);
+      //Problem: itsClass is coming back as undefined
       let dayNum = parseInt(itsClass.match(classRx)[1], 10);
       let dom = parseInt(await page.evaluate(element => element.textcontent, await dayElement.$x(xpDayNumber)));
       days[dayNum] = {
@@ -189,7 +190,7 @@ async function timeToUpdate() {
     let prevYearNum = prevMonth.getFullYear().valueOf();
     let nextYearNum = nextMonth.getFullYear().valueOf();
     for(let i : number = 0; i < days.length; i++) {
-      let eltClass : string = await page.evaluate(element => element.class, days[i].element);
+      let eltClass : string = await page.evaluate(element => element.getAttribute("class"), days[i].element);
       let elementIsCurrentMonth : boolean = !eltClass.includes("fc-other-month");
       if(elementIsCurrentMonth) {
         //This is exactly the month listed on the calendar

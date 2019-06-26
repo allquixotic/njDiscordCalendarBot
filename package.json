@@ -23,7 +23,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "repl": "local-repl",
-    "tslint": "tslint -c tslint.json -p tsconfig.json"
+    "tslint": "tslint -c tslint.json -p tsconfig.json",
+    "tsc": "tsc && cp -f config.json dist/config.json",
+    "run": "cd dist; node index.js"
   },
   "repl": {
     "enableAwait": true
