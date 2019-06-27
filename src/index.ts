@@ -3,6 +3,7 @@ import Client from 'discord.js';
 import Luxon = require("luxon");
 import Sugar from 'sugar';
 const to = require('await-to-js').default;
+//require('ts-node').register();
 //import Attachment from 'discord.js';
 //const fs = require('fs');
 
@@ -222,15 +223,15 @@ async function timeToUpdate() {
     }
 
     //Remove birthdays because they fuck everything up badly
-    eventBoxes = eventBoxes.filter(async (ebox) => {
+    const filterFunc : (ebox : puppeteer.ElementHandle) => Promise<boolean> = async function(ebox : puppeteer.ElementHandle) : Promise<boolean> {
       let p : string = await page.evaluate(element => element.getAttribute("class"), ebox);
-      return !p.includes("birthday");
-    });
-
-    eventBoxesImage = eventBoxesImage.filter(async (ebox) => {
-      let p : string = await page.evaluate(element => element.getAttribute("class"), ebox);
-      return !p.includes("birthday");
-    });
+      let ih : string = await page.evaluate(element => element.innerHTML, ebox);
+      console.log(`Looking at p=${p} and ih=${ih}.`);
+      return !p.toLowerCase().includes("birthday") && !ih.toLowerCase().includes("birthday");
+    };
+    eventBoxes = await eventBoxes.filter(filterFunc);
+    eventBoxesImage = await eventBoxesImage.filter(filterFunc);
+    console.log("Done? filtering!");
 
     const processEltsFunc = async function (arr : Array<puppeteer.ElementHandle>, parseFunc : (arg1: puppeteer.ElementHandle) => Promise<MyEvent>) {
       for(let eventBox of arr || []) {
@@ -252,10 +253,13 @@ async function timeToUpdate() {
           }
         }
       }
-    }
+    };
+
+    console.log("Invoking processEltsFunc");
 
     //Process all the non-image event boxes
     await processEltsFunc(eventBoxes, async function(elt : puppeteer.ElementHandle) : Promise<MyEvent> {
+      console.log(await page.evaluate(element => element.innerHTML, elt));
       let time : string = await elt.$eval(".fc-event-time", element => (element as any).innerText);
       return {
         recurring : time.startsWith("R"),

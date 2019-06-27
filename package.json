@@ -9,15 +9,15 @@
     "luxon": "^1.16.0",
     "puppeteer": "^1.18.0",
     "sugar": "^2.0.6",
-    "sugar-date": "^2.0.6"
+    "sugar-date": "^2.0.6",
+    "local-repl": "^4.0.0",
+    "ts-node": "^8.3.0"
   },
   "devDependencies": {
-    "local-repl": "^4.0.0",
     "@types/luxon": "^1.15.1",
     "@types/node": "^12.0.10",
     "@types/puppeteer": "^1.12.4",
     "typescript": "^3.5.2",
-    "ts-node": "^8.3.0",
     "tslint": "^5.18.0"
   },
   "scripts": {
