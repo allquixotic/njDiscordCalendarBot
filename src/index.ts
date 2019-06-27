@@ -2,6 +2,7 @@ import puppeteer from 'puppeteer';
 import Client from 'discord.js';
 import Luxon = require("luxon");
 import Sugar from 'sugar';
+import Bluebird from "bluebird";
 const to = require('await-to-js').default;
 //require('ts-node').register();
 //import Attachment from 'discord.js';
@@ -18,6 +19,7 @@ interface Config {
   username: string;
   password: string;
   updateFrequency: number;
+  minCacheAge: number;
 }
 const config : Config = require('./config.json') || {};
 /*
@@ -54,8 +56,9 @@ const csEventBoxesImage = ".fc-event-image > .desc";
 const csEventBoxes = ".fc-event";
 const pageWait : puppeteer.DirectNavigationOptions = {waitUntil: [ 'domcontentloaded', 'load', 'networkidle2' ]};
 const xpathOptions = {visible: true, timeout: 5000};
-const calendarData : Map<Date, Array<MyEvent>> = new Map<Date, Array<MyEvent>>();
+const calendarData : Map<number, Array<MyEvent>> = new Map<number, Array<MyEvent>>();
 var lastUpdate : Luxon.DateTime = null;
+var isUpdating : boolean = false;
 
 //Puppeteer
 var browser : puppeteer.Browser = null; 
@@ -92,7 +95,7 @@ async function getBoundingClientRect(el1 : puppeteer.ElementHandle) : Promise<Cl
   return retval;
 }
 
-async function rinside(rect1 : ClientRect, rect2 : ClientRect) : Promise<boolean> {
+function rinside(rect1 : ClientRect, rect2 : ClientRect) : boolean {
   return (
     ((rect2.top <= rect1.top) && (rect1.top <= rect2.bottom)) &&
     ((rect2.top <= rect1.bottom) && (rect1.bottom <= rect2.bottom)) &&
@@ -101,10 +104,13 @@ async function rinside(rect1 : ClientRect, rect2 : ClientRect) : Promise<boolean
   );
 }
 
-async function inside(el1 : puppeteer.ElementHandle, el2: puppeteer.ElementHandle) {
+async function inside(el1 : puppeteer.ElementHandle, el2: puppeteer.ElementHandle) : Promise<boolean> {
   var rect1 : ClientRect = await getBoundingClientRect(el1);
   var rect2 : ClientRect = await getBoundingClientRect(el2);
-  return rinside(rect1, rect2) || rinside(rect2, rect1);
+  let r1 : boolean = rinside(rect1, rect2);
+  let r2 : boolean = rinside(rect2, rect1);
+  //console.log(`inside: r1=${r1}, r2=${r2}`);
+  return r1 || r2;
 }
 
 function sleep(ms : number) {
@@ -150,6 +156,13 @@ interface MyDay {
   date: Date
 };
 async function timeToUpdate() {
+  if(isUpdating) {
+    while(isUpdating) {
+      await sleep(1000);
+    }
+    return;
+  }
+  isUpdating = true;
   console.log("Time to update.");
   let lg = await login();
   if(lg) {
@@ -167,9 +180,10 @@ async function timeToUpdate() {
     let dayElements : Array<puppeteer.ElementHandle> = await page.$x(xpDayTd);
     for(let dayElement of dayElements) {
       let itsClass = await page.evaluate(element => element.getAttribute("class"), dayElement);
-      let dayNum = parseInt(itsClass.match(classRx)[1], 10);
+      let dayNum = parseInt(itsClass.match(classRx)[1]);
       let dayns : Array<puppeteer.ElementHandle> = await dayElement.$x(xpDayNumber);
-      let dom = parseInt(await page.evaluate(element => element.textContent, dayns[0]));
+      let daynstr : string = await page.evaluate(element => element.textContent, dayns[0]);
+      let dom : number = parseInt(daynstr);
       days[dayNum] = {
         element: dayElement,
         dayOfMonth: dom,
@@ -181,37 +195,36 @@ async function timeToUpdate() {
 
     //This loop fills in the month and year for each "cell" in the table.
     let foundCurrentMonthYet : boolean = false;
-    let currMonth : sugarjs.Date.Chainable<Date> = new Sugar.Date(mainMonth);
-    let prevMonth : sugarjs.Date.Chainable<Date> = new Sugar.Date(mainMonth).addMonths(-1);
-    let nextMonth : sugarjs.Date.Chainable<Date> = new Sugar.Date(mainMonth).addMonths(1);
-    let currMonthNum = currMonth.getMonth().valueOf();
-    let prevMonthNum = prevMonth.getMonth().valueOf();
-    let nextMonthNum = nextMonth.getMonth().valueOf();
-    let currYearNum = currMonth.getFullYear().valueOf();
-    let prevYearNum = prevMonth.getFullYear().valueOf();
-    let nextYearNum = nextMonth.getFullYear().valueOf();
-    for(let i : number = 0; i < days.length; i++) {
-      let eltClass : string = await page.evaluate(element => element.getAttribute("class"), days[i].element);
+    const currMonthNum : number = Luxon.DateTime.fromJSDate(mainMonth).month;
+    const prevMonthNum : number = Luxon.DateTime.fromJSDate(mainMonth).plus(Luxon.Duration.fromObject({months: -1})).month;
+    const nextMonthNum : number = Luxon.DateTime.fromJSDate(mainMonth).plus(Luxon.Duration.fromObject({months: 1})).month;
+    const currYearNum : number = Luxon.DateTime.fromJSDate(mainMonth).year;
+    const prevYearNum : number = Luxon.DateTime.fromJSDate(mainMonth).plus(Luxon.Duration.fromObject({months: -1})).year;
+    const nextYearNum : number = Luxon.DateTime.fromJSDate(mainMonth).plus(Luxon.Duration.fromObject({months: 1})).year;
+    //console.log(`Calendar nums: ${currMonthNum}, ${prevMonthNum}, ${nextMonthNum}, ${currYearNum}, ${prevYearNum}, ${nextYearNum}`);
+    for(let day of days) {
+      let eltClass : string = await page.evaluate(element => element.getAttribute("class"), day.element);
       let elementIsCurrentMonth : boolean = !eltClass.includes("fc-other-month");
       if(elementIsCurrentMonth) {
         //This is exactly the month listed on the calendar
         foundCurrentMonthYet = true;
-        days[i].month = currMonthNum;
-        days[i].year  = currYearNum;
+        day.month = currMonthNum;
+        day.year  = currYearNum;
       }
       else {
         if(foundCurrentMonthYet) {
           //This is the month AFTER the month listed on the calendar
-          days[i].month = nextMonthNum;
-          days[i].year  = nextYearNum;
+          day.month = nextMonthNum;
+          day.year  = nextYearNum;
         }
         else {
           //This is the month BEFORE the month listed on the calendar
-          days[i].month = prevMonthNum;
-          days[i].year  = prevYearNum;
+          day.month = prevMonthNum;
+          day.year  = prevYearNum;
         }
       }
-      days[i].date = new Date(days[i].year, days[i].month, days[i].dayOfMonth);
+      day.date = new Date(day.year, day.month - 1, day.dayOfMonth);
+      //console.log(`Day Detected: ${day.date.toLocaleDateString()}`);
     }
 
     //Get all the event box elements from the page.
@@ -226,40 +239,42 @@ async function timeToUpdate() {
     const filterFunc : (ebox : puppeteer.ElementHandle) => Promise<boolean> = async function(ebox : puppeteer.ElementHandle) : Promise<boolean> {
       let p : string = await page.evaluate(element => element.getAttribute("class"), ebox);
       let ih : string = await page.evaluate(element => element.innerHTML, ebox);
-      console.log(`Looking at p=${p} and ih=${ih}.`);
       return !p.toLowerCase().includes("birthday") && !ih.toLowerCase().includes("birthday");
     };
-    eventBoxes = await eventBoxes.filter(filterFunc);
-    eventBoxesImage = await eventBoxesImage.filter(filterFunc);
-    console.log("Done? filtering!");
+    eventBoxes = await Bluebird.filter(eventBoxes, filterFunc);
+    eventBoxesImage = await Bluebird.filter(eventBoxesImage, filterFunc);
 
     const processEltsFunc = async function (arr : Array<puppeteer.ElementHandle>, parseFunc : (arg1: puppeteer.ElementHandle) => Promise<MyEvent>) {
       for(let eventBox of arr || []) {
-        for(let i : number = 0; i < days.length; i++) {
-          if(inside(days[i].element, eventBox)) {
+        let foundDay : boolean = false;
+        for(let day of days) {
+          let bInside : boolean = await inside(day.element, eventBox);
+          if(bInside) {
             //We found the cell we belong in!
-            let dd : Date = days[i].date;
+            foundDay = true;
+            let dd : Date = day.date;
             //Scrape the values
             let evt : MyEvent = await parseFunc(eventBox);
-            if(calendarData.has(dd)) {
+            if(calendarData.has(dd.getTime())) {
               //Put the event into an existing Array
-              calendarData.get(dd).push(evt);
+              calendarData.get(dd.getTime()).push(evt);
             }
             else {
               //Put the event into a new Array
-              calendarData.set(dd, [evt]);
+              calendarData.set(dd.getTime(), [evt]);
             }
             break;
           }
         }
+        if(!foundDay) {
+          let evt : MyEvent = await parseFunc(eventBox);
+          console.log(`Not sure where ${myEventToString(evt)} belongs; didn't find a day for it. Rect: ${JSON.stringify(await getBoundingClientRect(eventBox))}`);
+        }
       }
     };
 
-    console.log("Invoking processEltsFunc");
-
     //Process all the non-image event boxes
     await processEltsFunc(eventBoxes, async function(elt : puppeteer.ElementHandle) : Promise<MyEvent> {
-      console.log(await page.evaluate(element => element.innerHTML, elt));
       let time : string = await elt.$eval(".fc-event-time", element => (element as any).innerText);
       return {
         recurring : time.startsWith("R"),
@@ -287,21 +302,46 @@ async function timeToUpdate() {
   }
   else throw "ERROR: Wasn't able to get the current month!";
 
+  // try {
+  //   for(let [k, v] of calendarData) {
+  //     console.log(`${new Date(k).toLocaleDateString()}: `);
+  //     for(let j of v) {
+  //       console.log(`    ${myEventToString(j)}`);
+  //     }
+  //     console.log("--------");
+  //   }
+  // }
+  // catch {
+
+  // }
+
   lastUpdate = Luxon.DateTime.local();
+  isUpdating = false;
 }
 
-async function getCalendar(dt : Date) : Promise<string> {
-  let evtList = calendarData.get(dt);
-  if(evtList) {
+function myEventToString(rv : MyEvent) : string {
+  let rec : string = rv.recurring ? "(recurring)" : "";
+  return `"${rv.title}" ${rec} at ${rv.when}`;
+}
+
+function getCalendar(parm : number) : string {
+  let dt : Date = new Date(parm);
+  let evtList = calendarData.get(parm) || [];
+  //console.log(`getCalendar called for ${dt.toLocaleDateString()} and we got an event list of ${evtList.length} elements`);
+  if(evtList && evtList.length > 0) {
     let retval : string = "";
+    let first : boolean = true;
     for(let rv of evtList) {
-      let rec : string = rv.recurring ? "(recurring)" : "";
-      retval += `"${rv.title}" ${rec} at ${rv.when}`;
+      if(!first) {
+        retval += "\n";
+      }
+      retval += myEventToString(rv);
+      first = false;
     }
     return retval;
   }
   else {
-    return `Sorry, ${dt.toLocaleDateString()} is too far in the past/future so I can't get you any data on it right now. Try again another day!`;
+    return `Sorry, ${dt.toLocaleDateString()} is too far in the past/future so I can't get you any data on it. I only know about events that display on the current month view of the calendar on the website.`;
   }
 }
 
@@ -325,9 +365,14 @@ async function setupDiscord() {
       if(kron) {
         let numSecondsStale = lastUpdate ? Math.trunc(Luxon.DateTime.local().setLocale('en-us').diff(lastUpdate, 'seconds').toObject().seconds) : 99999999;
         if(updateRequested) {
-          await msg.channel.send(`${msg.author} Okay, I'm updating my cache of the event calendar. This will take a minute or so. `
-          + `I will print the up-to-date calendar for ${dt.setLocale('en-us').toLocaleString()} when I'm done.`);
-          await timeToUpdate();
+          if(numSecondsStale < config.minCacheAge) {
+            await msg.channel.send(`${msg.author} Whoa, easy there partner! I just updated the cache ${numSecondsStale} seconds ago; if you want an even fresher calendar, wait at least ${config.minCacheAge - numSecondsStale} seconds and try again.`);
+          }
+          else {
+            await msg.channel.send(`${msg.author} Okay, I'm updating my cache of the event calendar. This will take a minute or so. `
+            + `I will print the up-to-date calendar for ${dt.setLocale('en-us').toLocaleString()} when I'm done.`);
+            await timeToUpdate();
+          }
         }
         else {
           if(lastUpdate == null || numSecondsStale > config.updateFrequency) {
@@ -339,7 +384,11 @@ async function setupDiscord() {
         await msg.channel.send(`${msg.author} Here is ${dt.setLocale('en-us').toLocaleString(Luxon.DateTime.DATE_SHORT)}'s calendar.`
         + ` I last refreshed my cache on ${lastUpdate.setLocale('en-us').toLocaleString(Luxon.DateTime.DATETIME_FULL)}; `
         + `if that's too old, run \`${config.updateRegexp}\` to get the latest possible.`);
-        msg.channel.send(getCalendar(dt.setLocale('en-us').toJSDate()));
+        let calendarStr : string = getCalendar(dt.setLocale('en-us').toJSDate().getTime());
+        if(calendarStr == null || calendarStr == undefined || calendarStr.length == 0) {
+          calendarStr = "Er, uh... so I actually lied; I don't have any calendar data for this date. I have no idea why; maybe there just aren't any events on that day. If that sounds unlikely, this is probably a coding error. Ping my owner. Sorry!";
+        }
+        await msg.channel.send(calendarStr);
       }
       else {
         msg.channel.send(`${msg.author} I didn't understand ${argument}`);
@@ -352,6 +401,9 @@ async function setupDiscord() {
 async function main() {
   if(!config.updateFrequency) {
     config.updateFrequency = 3600;
+  }
+  if(!config.minCacheAge) {
+    config.minCacheAge = 300;
   }
   await setupPuppeteer();
   await timeToUpdate();
