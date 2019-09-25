@@ -4,9 +4,6 @@ import Luxon = require("luxon");
 import Sugar from 'sugar';
 import Bluebird from "bluebird";
 const to = require('await-to-js').default;
-//require('ts-node').register();
-//import Attachment from 'discord.js';
-//const fs = require('fs');
 
 //Settings
 interface Config {
@@ -168,8 +165,11 @@ async function timeToUpdate() {
   if(lg) {
     throw "ERROR: Wasn't able to login!";
   }
+  page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+  await page.reload();
   console.log("INFO: Logged into Enjin site; waiting 8 seconds");
   await sleep(8000);
+  console.log("INFO: On " + page.url());
 
   calendarData.clear();
   let retval = {};
@@ -230,9 +230,15 @@ async function timeToUpdate() {
     //Get all the event box elements from the page.
     let [ err3, eventBoxes ] : [ any, Array<puppeteer.ElementHandle> ] = await to(page.$$(csEventBoxes));
     let [ err4, eventBoxesImage ] : [ any, Array<puppeteer.ElementHandle> ] = await to(page.$$(csEventBoxesImage));
-    if((eventBoxes == null || eventBoxes.length <= 0 ) && (eventBoxesImage == null || eventBoxesImage.length <= 0)) {
+    while((eventBoxes == null || eventBoxes.length <= 0 ) && (eventBoxesImage == null || eventBoxesImage.length <= 0)) {
       //TODO: Handle this better and don't fail out of the program completely, just whine to the user
       throw "ERROR: Wasn't able to see ANY events!";
+      /*await page.screenshot({path: 'badcal.png'});
+      console.log("Waiting more time for events to show up.");
+      await sleep(5000);
+      [ err3, eventBoxes ] = await to(page.$$(csEventBoxes));
+      [ err4, eventBoxesImage ] = await to(page.$$(csEventBoxesImage));
+      */
     }
 
     //Remove birthdays because they fuck everything up badly
@@ -254,6 +260,7 @@ async function timeToUpdate() {
             foundDay = true;
             let dd : Date = day.date;
             //Scrape the values
+            console.log("Happy feet");
             let evt : MyEvent = await parseFunc(eventBox);
             if(calendarData.has(dd.getTime())) {
               //Put the event into an existing Array
@@ -267,6 +274,7 @@ async function timeToUpdate() {
           }
         }
         if(!foundDay) {
+          console.log("Uh oh!");
           let evt : MyEvent = await parseFunc(eventBox);
           console.log(`Not sure where ${myEventToString(evt)} belongs; didn't find a day for it. Rect: ${JSON.stringify(await getBoundingClientRect(eventBox))}`);
         }
