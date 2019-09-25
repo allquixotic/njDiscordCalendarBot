@@ -17,6 +17,9 @@ interface Config {
   password: string;
   updateFrequency: number;
   minCacheAge: number;
+  proxy?: string;
+  proxyUser?: string;
+  proxyPass?: string;
 }
 const config : Config = require('./config.json') || {};
 /*
@@ -115,9 +118,25 @@ function sleep(ms : number) {
 }
 
 async function setupPuppeteer() {
-  if(!browser) browser = await puppeteer.launch();
+  if(!browser) {
+    if(config.proxy) {
+      console.log("Using a proxy.");
+      browser = await puppeteer.launch({ args: [`--proxy-server=${config.proxy}`] });
+    }
+    else {
+      console.log("NOT using a proxy.");
+      browser = await puppeteer.launch();
+    }
+  }
   if(!page) {
     page = await browser.newPage();
+    if(config.proxyUser && config.proxyPass) {
+      console.log("Using proxy authentication.");
+      await page.authenticate({
+        username: config.proxyUser,
+        password: config.proxyPass,
+      });
+    }
     page.setViewport({width: 1920, height: 1080, deviceScaleFactor: 2});
   }
 }
@@ -260,7 +279,6 @@ async function timeToUpdate() {
             foundDay = true;
             let dd : Date = day.date;
             //Scrape the values
-            console.log("Happy feet");
             let evt : MyEvent = await parseFunc(eventBox);
             if(calendarData.has(dd.getTime())) {
               //Put the event into an existing Array
