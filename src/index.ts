@@ -308,7 +308,7 @@ async function timeToUpdate() {
     await processEltsFunc(eventBoxes, async function(elt : puppeteer.ElementHandle) : Promise<MyEvent> {
       let time : string = "";
       try {
-        let times : Array<puppeteer.ElementHandle> = await elt.$x("//span[contains(@class,'fc-event-time')]");
+        let times : Array<puppeteer.ElementHandle> = await elt.$x("a/span[contains(@class,'fc-event-time')]");
         time = await page.evaluate(t => t.textContent, times[0]);
       }
       catch{}
