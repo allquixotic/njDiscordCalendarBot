@@ -280,13 +280,18 @@ async function timeToUpdate() {
             let dd : Date = day.date;
             //Scrape the values
             let evt : MyEvent = await parseFunc(eventBox);
-            if(calendarData.has(dd.getTime())) {
-              //Put the event into an existing Array
-              calendarData.get(dd.getTime()).push(evt);
+            if(evt.when && evt.when.length > 0) {
+              if(calendarData.has(dd.getTime())) {
+                //Put the event into an existing Array
+                calendarData.get(dd.getTime()).push(evt);
+              }
+              else {
+                //Put the event into a new Array
+                calendarData.set(dd.getTime(), [evt]);
+              }
             }
             else {
-              //Put the event into a new Array
-              calendarData.set(dd.getTime(), [evt]);
+              console.log("Found an event box without a time! " + JSON.stringify(evt));
             }
             break;
           }
@@ -301,7 +306,12 @@ async function timeToUpdate() {
 
     //Process all the non-image event boxes
     await processEltsFunc(eventBoxes, async function(elt : puppeteer.ElementHandle) : Promise<MyEvent> {
-      let time : string = await elt.$eval(".fc-event-time", element => (element as any).innerText);
+      let time : string = "";
+      try {
+        let times : Array<puppeteer.ElementHandle> = await elt.$x("//span[contains(@class,'fc-event-time')]");
+        time = await page.evaluate(t => t.textContent, times[0]);
+      }
+      catch{}
       return {
         recurring : time.startsWith("R"),
         when : time.replace("R", ""),
