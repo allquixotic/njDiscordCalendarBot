@@ -5,22 +5,22 @@
   "main": "index.js",
   "dependencies": {
     "await-to-js": "^2.1.1",
-    "bluebird": "^3.5.5",
-    "discord.js": "^11.5.1",
+    "bluebird": "^3.7.2",
+    "discord.js": "^12.2.0",
     "local-repl": "^4.0.0",
-    "luxon": "^1.18.0",
-    "puppeteer": "^1.20.0",
+    "luxon": "^1.24.1",
+    "puppeteer": "^5.0.0",
     "sugar": "^2.0.6",
     "sugar-date": "^2.0.6",
-    "ts-node": "^8.4.1"
+    "ts-node": "^8.10.2"
   },
   "devDependencies": {
-    "@types/bluebird": "^3.5.27",
+    "@types/bluebird": "^3.5.32",
     "@types/luxon": "^1.15.2",
-    "@types/node": "^12.7.5",
-    "@types/puppeteer": "^1.19.1",
-    "tslint": "^5.20.0",
-    "typescript": "^3.6.3"
+    "@types/node": "^14.0.22",
+    "@types/puppeteer": "^3.0.1",
+    "eslint": "^7.4.0",
+    "typescript": "^3.9.6"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
